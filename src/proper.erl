@@ -253,6 +253,8 @@
 %%% <dd>This is equivalent to the {@link numtests/1} property wrapper. Any
 %%%   {@link numtests/1} wrappers in the actual property will overwrite this
 %%%   setting.</dd>
+%%% <dt>`{seed, {<Non_negative_integer>,<Non_negative_integer>,<Non_negative_integer>}}'</dt>
+%%% <dd>Pass a seed to the RNG so that random results can be reproduced.</dd>
 %%% <dt>`{start_size, <Size>}'</dt>
 %%% <dd>Specifies the initial value of the `size' parameter (default is 1), see
 %%%   the documentation of the {@link proper_types} module for details.</dd>
@@ -508,6 +510,7 @@
 		  | pos_integer()
 		  | {'start_size',proper_gen:size()}
 		  | {'max_size',proper_gen:size()}
+          | {'seed',proper_gen:seed()}
 		  | {'max_shrinks',non_neg_integer()}
 		  | 'noshrink'
 		  | {'constraint_tries',pos_integer()}
@@ -942,6 +945,7 @@ parse_opt(UserOpt, Opts) ->
 	{search_steps, N}    -> Opts#opts{search_steps = N};
 	{search_strategy, S} -> Opts#opts{search_strategy = S};
 	N when is_integer(N) -> Opts#opts{numtests = N};
+	{seed,Seed}          -> Opts#opts{seed = Seed};
 	{start_size,Size}    -> Opts#opts{start_size = Size};
 	{max_size,Size}      -> Opts#opts{max_size = Size};
 	{max_shrinks,N}      -> Opts#opts{max_shrinks = N};
