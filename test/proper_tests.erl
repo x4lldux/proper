@@ -38,8 +38,8 @@
 
 %% NOTE: Never add long_result to Opts for these macros.
 
-state_is_clean() ->
-    get() =:= [].
+-define(state_is_clean(), ?assertEqual([],get())).
+-define(_state_is_clean(), ?_assertEqual([],get())).
 
 assertEqualsOneOf(_X, none) ->
     ok;
@@ -62,13 +62,13 @@ assertEqualsOneOf(X, List) ->
 	?_test(begin
 	    ?assertMatch(ExpResult, proper:quickcheck(Test,Opts)),
 	    proper:clean_garbage(),
-	    ?assert(state_is_clean()),
+	    ?state_is_clean(),
 	    case AlsoLongResult of
 		true ->
 		    ?assertMatch(ExpResult,
 				 proper:quickcheck(Test,[long_result|Opts])),
 		    proper:clean_garbage(),
-		    ?assert(state_is_clean());
+		    ?state_is_clean();
 		false ->
 		    ok
 	    end
@@ -83,7 +83,7 @@ assertEqualsOneOf(X, List) ->
 -define(assertCheck(ExpShortResult, CExm, Test, Opts),
 	begin
 	    ?assertMatch(ExpShortResult, proper:check(Test,CExm,Opts)),
-	    ?assert(state_is_clean())
+	    ?state_is_clean()
 	end).
 
 -define(_fails(Test),
@@ -139,7 +139,7 @@ assertEqualsOneOf(X, List) ->
 get_cexm() ->
     CExm = proper:counterexample(),
     proper:clean_garbage(),
-    ?assert(state_is_clean()),
+    ?state_is_clean(),
     CExm.
 
 -define(checkCExm(CExm, ExpCExm, AllCExms, Test, Opts),
@@ -158,7 +158,7 @@ get_cexm() ->
 		   ?assertEqual(N, get_temp()),
 		   erase_temp(),
 		   proper:clean_garbage(),
-		   ?assert(state_is_clean())
+		   ?state_is_clean()
 	       end)).
 
 inc_temp() ->
@@ -234,7 +234,7 @@ assert_can_translate(Mod, TypeStr) ->
     Result1 = proper_typeserver:translate_type(Type),
     Result2 = proper_typeserver:translate_type(Type),
     proper_typeserver:stop(),
-    ?assert(state_is_clean()),
+    ?state_is_clean(),
     {ok,Type1} = Result1,
     {ok,Type2} = Result2,
     ?assert(proper_types:equal_types(Type1,Type2)),
@@ -244,12 +244,13 @@ assert_cant_translate(Mod, TypeStr) ->
     proper_typeserver:start(),
     Result = proper_typeserver:translate_type({Mod,TypeStr}),
     proper_typeserver:stop(),
-    ?assert(state_is_clean()),
+    ?state_is_clean(),
     ?assertMatch({error,_}, Result).
 
 %% TODO: after fixing the typesystem, use generic reverse function.
 assert_is_instance(X, Type) ->
-    ?assert(proper_types:is_inst(X, Type) andalso state_is_clean()).
+    ?assert(proper_types:is_inst(X, Type)),
+    ?state_is_clean().
 
 assert_can_generate(Type, CheckIsInstance) ->
     lists:foreach(fun(Size) -> try_generate(Type,Size,CheckIsInstance) end,
@@ -257,7 +258,7 @@ assert_can_generate(Type, CheckIsInstance) ->
 
 try_generate(Type, Size, CheckIsInstance) ->
     {ok,Instance} = proper_gen:pick(Type, Size),
-    ?assert(state_is_clean()),
+    ?state_is_clean(),
     case CheckIsInstance of
 	true  -> assert_is_instance(Instance, Type);
 	false -> ok
@@ -278,14 +279,15 @@ assert_native_can_generate(Mod, TypeStr, CheckIsInstance) ->
 
 assert_cant_generate(Type) ->
     ?assertEqual(error, proper_gen:pick(Type)),
-    ?assert(state_is_clean()).
+    ?state_is_clean().
 
 assert_cant_generate_cmds(Type, N) ->
     ?assertEqual(error, proper_gen:pick(?SUCHTHAT(T, Type, length(T) > N))),
-    ?assert(state_is_clean()).
+    ?state_is_clean().
 
 assert_not_is_instance(X, Type) ->
-    ?assert(not proper_types:is_inst(X, Type) andalso state_is_clean()).
+    ?assert(not proper_types:is_inst(X, Type)),
+    ?state_is_clean().
 
 assert_function_type_works(FunType) ->
     {ok,F} = proper_gen:pick(FunType),
@@ -293,7 +295,7 @@ assert_function_type_works(FunType) ->
     ?assert(proper_types:is_instance(F, FunType)),
     assert_is_pure_function(F),
     proper:global_state_erase(),
-    ?assert(state_is_clean()).
+    ?state_is_clean().
 
 assert_is_pure_function(F) ->
     {arity,Arity} = erlang:fun_info(F, arity),
