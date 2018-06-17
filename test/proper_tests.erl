@@ -1148,6 +1148,22 @@ options_test_() ->
 		 ?FORALL(_,?SIZED(Size,integer(Size,Size)),false),
 		 [{start_size,12}])].
 
+seeded_test_() ->
+    Seed = os:timestamp(),
+    Opts = [{seed,Seed}, noshrink, {start_size,65536}],
+    QC = fun (Prop) ->
+                 R = proper:counterexample(Prop, Opts),
+                 proper:clean_garbage(),
+                 R
+         end,
+    [[?_state_is_clean(), ?_assertEqual(QC(Prop),Check)]
+     || Prop <- [?FORALL(_, integer(), false)
+                ,?FORALL(_, integer(), ?TRAPEXIT(false))
+                ,?FORALL_TARGETED(I, integer(), begin ?MAXIMIZE(I),false end)
+                ],
+        Check <- [QC(Prop)]
+    ].
+
 setup_prop() ->
     ?SETUP(fun () ->
 		   put(setup_token, true),
