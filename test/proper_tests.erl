@@ -1150,19 +1150,30 @@ options_test_() ->
 
 seeded_test_() ->
     Seed = os:timestamp(),
-    Opts = [{seed,Seed}, noshrink, {start_size,65536}],
+    BaseOpts = [noshrink, {start_size,65536}],
     QC = fun (Prop) ->
-                 R = proper:counterexample(Prop, Opts),
+                 R = proper:counterexample(Prop, [{seed,Seed}|BaseOpts]),
                  proper:clean_garbage(),
                  R
          end,
-    [[?_state_is_clean(), ?_assertEqual(QC(Prop),Check)]
-     || Prop <- [?FORALL(_, integer(), false)
-                ,?FORALL(_, integer(), ?TRAPEXIT(false))
-                ,?FORALL_TARGETED(I, integer(), begin ?MAXIMIZE(I),false end)
-                ],
-        Check <- [QC(Prop)]
-    ].
+    NC = fun (Prop) ->
+                 R = proper:counterexample(Prop, BaseOpts),
+                 proper:clean_garbage(),
+                 R
+         end,
+    OC = fun (Prop) ->
+                 OtherSeed = os:timestamp(),
+                 R = proper:counterexample(Prop, [{seed,OtherSeed}|BaseOpts]),
+                 proper:clean_garbage(),
+                 R
+         end,
+    [[?_state_is_clean(), ?_assertEqual(QC(Prop),Check),
+      ?_state_is_clean(), ?_assertNotEqual(NC(Prop),Check),
+      ?_state_is_clean(), ?_assertNotEqual(OC(Prop),Check)]
+     || Prop <- [?FORALL(_, integer(), false),
+                 ?FORALL(_, integer(), ?TRAPEXIT(false)),
+                 ?FORALL_TARGETED(I, integer(), begin ?MAXIMIZE(I),false end)],
+        Check <- [QC(Prop)]].
 
 setup_prop() ->
     ?SETUP(fun () ->
