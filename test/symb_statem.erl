@@ -28,62 +28,81 @@
 -module(symb_statem).
 
 -export([command/1,
-	 initial_state/0, next_state/3,
-	 precondition/2, postcondition/3]).
--export([foo/1, bar/1]).
+         initial_state/0, next_state/3,
+         precondition/2, postcondition/3]).
+-export([foo/1, bar/1, croak/0]).
 -export([prop_simple/0, prop_parallel_simple/0]).
 
 -include_lib("proper/include/proper.hrl").
 
 -record(state, {foo = [] :: list(),
-		bar = [] :: list()}).
+                bar = [] :: list()
+               }).
 -type state() :: #state{}.
 
 -spec initial_state() -> state().
 initial_state() ->
-    #state{}.
+  #state{}.
 
 command(_S) ->
-    oneof([{call,?MODULE,foo,[integer()]},
-	   {call,?MODULE,bar,[integer()]}]).
+  oneof([{call,?MODULE,foo,[integer()]},
+         {call,?MODULE,croak,[]},
+         {call,?MODULE,bar,[integer()]}]).
 
 precondition(_, _) ->
-    true.
+  true.
 
+next_state(S, _V, {call,_,croak,[]}) ->
+  S;
 next_state(S = #state{foo=Foo}, V, {call,_,foo,[_Arg]}) ->
-    V1 = {call,erlang,element,[1,V]},
-    S#state{foo = [V1|Foo]};
+  V1 = {call,erlang,element,[1,V]},
+  S#state{foo = [V1|Foo]};
 next_state(S = #state{bar=Bar}, V, {call,_,bar,[_Arg]}) ->
-    V1 = {call,erlang,hd,[V]},
-    S#state{bar = [V1|Bar]}.
+  V1 = {call,erlang,hd,[V]},
+  S#state{bar = [V1|Bar]}.
 
 postcondition(S, {call,_,foo,[_Arg]}, Res) when is_tuple(Res) ->
-    lists:all(fun is_integer/1, S#state.foo);
+  lists:all(fun is_integer/1, S#state.foo);
 postcondition(S, {call,_,bar,[_Arg]}, Res) when is_list(Res) ->
-    lists:all(fun is_integer/1, S#state.bar);
+  lists:all(fun is_integer/1, S#state.bar);
+postcondition(_, {call,_,croak,[]}, _) ->
+  true;
 postcondition(_, _, _) ->
-    false.
+  false.
 
 foo(I) when is_integer(I) ->
-    erlang:make_tuple(3, I).
+  io:format(user, "foo\n", []),
+  erlang:make_tuple(3, I).
 
 bar(I) when is_integer(I) ->
-    lists:duplicate(3, I).
+  lists:duplicate(3, I).
+
+croak() ->
+  io:format(user, "croaking now\n", []),
+  1/0.
 
 prop_simple() ->
-    ?FORALL(Cmds, commands(?MODULE),
-	    begin
-		{H,S,Res} = run_commands(?MODULE, Cmds),
-		?WHENFAIL(
-		   io:format("H: ~w\nState: ~w\n:Res: ~w\n", [H,S,Res]),
-		   Res =:= ok)
-	    end).
+  ?FORALL(Cmds, commands(?MODULE),
+          begin
+            {H,S,Res} = run_commands(?MODULE, Cmds),
+            ?WHENFAIL(
+               io:format("H: ~w\nState: ~w\n:Res: ~w\n", [H,S,Res]),
+               Res =:= ok)
+          end).
+
+croaking_commands() ->
+  exactly({
+           [{set,{var,1},{call,symb_statem,foo,[1]}}],   % seq
+           [
+            [{set,{var,2},{call,symb_statem,croak,[]}}], % proc 1
+            []                                           % proc 2
+           ]}).
 
 prop_parallel_simple() ->
-    ?FORALL(Cmds, parallel_commands(?MODULE),
-	    begin
-		{S,P,Res} = run_parallel_commands(?MODULE, Cmds),
-		?WHENFAIL(
-		   io:format("Seq: ~w\nParallel: ~w\n:Res: ~w\n", [S,P,Res]),
-		   Res =:= ok)
-	    end).
+  ?FORALL(Cmds, croaking_commands(),
+          begin
+            {S,P,Res} = run_parallel_commands(?MODULE, Cmds),
+            ?WHENFAIL(
+               io:format(user, "Seq: ~w\nParallel: ~w\n:Res: ~w\n", [S,P,Res]),
+               Res =:= ok)
+          end).
