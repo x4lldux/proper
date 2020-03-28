@@ -596,6 +596,7 @@
 -type short_module_result() :: [mfa()] | error().
 -type module_result() :: long_module_result() | short_module_result().
 -type shrinking_result() :: {non_neg_integer(),imm_testcase()}.
+-type shrinking_states() :: 'false' | 'true' | 'done'.
 
 %%-----------------------------------------------------------------------------
 %% State handling functions
@@ -1740,11 +1741,23 @@ finalize_input(Instance) ->
 %% Shrinking functions
 %%-----------------------------------------------------------------------------
 
+-spec set_shrinking_param(shrinking_states()) -> ok.
+set_shrinking_param(Val) ->
+    OldParams = erlang:get('$parameters'),
+    case OldParams of
+        undefined ->
+            erlang:put('$parameters', [{shrinking, Val}]);
+        _ ->
+            erlang:put('$parameters', [{shrinking, Val} | OldParams])
+    end,
+    ok.
+
 -spec shrink(imm_testcase(), test(), fail_reason(), opts()) ->
 	  {'ok',imm_testcase()} | error().
 shrink(ImmTestCase, Test, Reason,
        #opts{expect_fail = false, noshrink = false, max_shrinks = MaxShrinks,
 	     output_fun = Print, nocolors = NoColors} = Opts) ->
+    set_shrinking_param(true),                % needs to be set before printing
     case NoColors of
         true ->
             Print("~nShrinking ", []);
@@ -1758,27 +1771,32 @@ shrink(ImmTestCase, Test, Reason,
 	{Shrinks,MinImmTestCase} ->
 	    case rerun(Test, true, MinImmTestCase) of
 		#fail{actions = MinActions} ->
-                    report_shrinking(Shrinks, MinImmTestCase, MinActions,
-                                     Print, NoColors),
+                set_shrinking_param(done),
+                report_shrinking(Shrinks, MinImmTestCase, MinActions,
+                                 Print, NoColors),
 		    {ok, MinImmTestCase};
 		%% The cases below should never occur for deterministic tests.
 		%% When they do happen, we have no choice but to silently
 		%% skip the fail actions.
 		#pass{} ->
-                    report_shrinking(Shrinks, MinImmTestCase, [], Print,
-                                     NoColors),
+                set_shrinking_param(done),
+                report_shrinking(Shrinks, MinImmTestCase, [], Print,
+                                 NoColors),
 		    {ok, MinImmTestCase};
 		{error,_Reason} ->
-                    report_shrinking(Shrinks, MinImmTestCase, [], Print,
-                                     NoColors),
+                set_shrinking_param(done),
+                report_shrinking(Shrinks, MinImmTestCase, [], Print,
+                                 NoColors),
 		    {ok, MinImmTestCase}
 	    end
     catch
 	throw:non_boolean_result ->
+        set_shrinking_param(done),
 	    Print("~n", []),
 	    {error, non_boolean_result}
     end;
 shrink(ImmTestCase, _Test, _Reason, _Opts) ->
+    set_shrinking_param(done),
     {ok, ImmTestCase}.
 
 -spec fix_shrink(imm_testcase(), stripped_test(), fail_reason(),
