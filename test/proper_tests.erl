@@ -916,7 +916,7 @@ shrinking_param_phases_test_() ->
                ?assertEqual(true, get({shrink_phase_mark, done})),
                [erase({shrink_phase_mark, P}) || P <- [false, true, done]],
                proper:clean_garbage(),
-               ?assert(state_is_clean())
+               ?state_is_clean()
            end).
 
 parallel_statem_test_() ->
